@@ -1,26 +1,28 @@
-use lib '.';
-use t::Helper;
+use Mojo::Base -strict;
+use Test::More;
+use JSON::Validator;
 
-my $schema = {
-  type => 'object',
-  properties =>
-    {mynumber => {type => 'number', minimum => -0.5, maximum => 2.7}}
-};
+my $validator = JSON::Validator->new;
+my $schema
+  = {type => 'object', properties => {mynumber => {type => 'number', minimum => -0.5, maximum => 2.7}}};
 
-validate_ok {mynumber => 1},   $schema;
-validate_ok {mynumber => '2'}, $schema,
-  E('/mynumber', 'Expected number - got string.');
+my @errors = $validator->validate({mynumber => 1}, $schema);
+is "@errors", "", "number";
 
-t::Helper->validator->coerce(numbers => 1);
-validate_ok {mynumber => '-0.3'},   $schema;
-validate_ok {mynumber => '0.1e+1'}, $schema;
-validate_ok {mynumber => '2xyz'},   $schema,
-  E('/mynumber', 'Expected number - got string.');
-validate_ok {mynumber => '.1'}, $schema;
-validate_ok {validNumber => 2.01},
-  {
-  type       => 'object',
-  properties => {validNumber => {type => 'number', multipleOf => 0.01}}
-  };
+@errors = $validator->validate({mynumber => "2"}, $schema);
+is "@errors", "/mynumber: Expected number - got string.", "a string";
+
+$validator->coerce(numbers => 1);
+@errors = $validator->validate({mynumber => "-0.3"}, $schema);
+is "@errors", "", "coerced string into number";
+
+@errors = $validator->validate({mynumber => "0.1e+1"}, $schema);
+is "@errors", "", "coerced scientific notation";
+
+@errors = $validator->validate({mynumber => "2xyz"}, $schema);
+is "@errors", "/mynumber: Expected number - got string.", "a string";
+
+@errors = $validator->validate({mynumber => ".1"}, $schema);
+is "@errors", "/mynumber: Expected number - got string.", "not a JSON number";
 
 done_testing;
